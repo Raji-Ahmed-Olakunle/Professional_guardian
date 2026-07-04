@@ -1,6 +1,6 @@
 const pdfParse = require('pdf-parse');
 const { extractCvProfile } = require('./geminiService');
-const UserProfile = require('../models/UserProfile');
+const UserProfile = require('../models/userProfile');
 const Tesseract = require('tesseract.js');
 const { fromBuffer } = require('pdf2pic');
 
