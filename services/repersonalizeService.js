@@ -115,7 +115,7 @@
 
 
 
-const UserProfile = require('../models/UserProfile');
+const UserProfile = require('../models/userProfile');
 const { fetchFreshNewsWithTopics } = require('./newsService');
 const { fetchFreshBooks } = require('./bookService');
 const { getPersonalizedJobs } = require('./jobService');
