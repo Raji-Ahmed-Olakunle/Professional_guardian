@@ -468,7 +468,7 @@
 
 const axios = require('axios');
 const { generateBookRecommendations } = require('./geminiService');
-const { getCache, setCache,setPersonalCache,getPersonalCache } = require('./cacheService');
+const { getCache, setCache,setPersonalCache,getPersonalCache ,isDbAvailable} = require('./cacheService');
 
 const GOOGLE_BOOKS_API_KEY = process.env.GOOGLE_BOOKS_API_KEY;
 if (!GOOGLE_BOOKS_API_KEY) throw new Error('GOOGLE_BOOKS_API_KEY is not set');
@@ -912,7 +912,7 @@ async function fetchBooksForKeyword(keyword, count = 5) {
     results.slice(0, count),
     (book) => fetchBookData(book),
     3,
-    1000,
+    800,
   );
 
   return fetchedBooks
@@ -980,36 +980,58 @@ async function fetchFreshBooks(profession, cvBookKeywords = [], userId = null) {
     recommendations,
     (book) => fetchBookData(book),
     3,
-    3000,
+    1200,
   );
 
   const validProfessionBooks = professionBooks
     .filter((r) => r.status === 'fulfilled' && r.value !== null)
     .map((r) => r.value);
-
+ 
   // ── Part 2: CV keyword books (each keyword = its own category) ────────────
   let cvBooks = [];
 
+  // if (cvBookKeywords.length > 0) {
+  //   console.log(`[Books] Fetching CV keyword books for ${cvBookKeywords.length} keywords...`);
+
+  //   // Fetch for each keyword sequentially to avoid rate limits
+  //   for (const keyword of cvBookKeywords.slice(0, 5)) {
+  //     console.log(`[Books] Fetching books for keyword: "${keyword}"`);
+  //     const keywordBooks = await fetchBooksForKeyword(keyword, 5);
+  //     cvBooks.push(...keywordBooks);
+
+  //     // Small delay between keywords
+  //     await sleep(2000);
+  //   }
+
+  //   console.log(`[Books] CV keyword books fetched: ${cvBooks.length}`);
+  // }
   if (cvBookKeywords.length > 0) {
-    console.log(`[Books] Fetching CV keyword books for ${cvBookKeywords.length} keywords...`);
+  const keywords = cvBookKeywords.slice(0, 5);
+  console.log(`[Books] Fetching CV keyword books for ${keywords.length} keywords (2 at a time)...`);
 
-    // Fetch for each keyword sequentially to avoid rate limits
-    for (const keyword of cvBookKeywords.slice(0, 5)) {
-      console.log(`[Books] Fetching books for keyword: "${keyword}"`);
-      const keywordBooks = await fetchBooksForKeyword(keyword, 5);
-      cvBooks.push(...keywordBooks);
-
-      // Small delay between keywords
-      await sleep(2000);
+  const CONCURRENCY = 2;
+  for (let i = 0; i < keywords.length; i += CONCURRENCY) {
+    const chunk = keywords.slice(i, i + CONCURRENCY);
+    const chunkResults = await Promise.allSettled(
+      chunk.map((keyword) => fetchBooksForKeyword(keyword, 5)),
+    );
+    for (const r of chunkResults) {
+      if (r.status === 'fulfilled') cvBooks.push(...r.value);
     }
-
-    console.log(`[Books] CV keyword books fetched: ${cvBooks.length}`);
+ 
   }
-
+  console.log(`[Books] CV keyword books fetched: ${cvBooks.length}`);
+}
   // ── Merge all books ────────────────────────────────────────────────────────
   const allValidBooks = [...validProfessionBooks, ...cvBooks];
-
-  if (allValidBooks.length === 0) return [];
+ if (allValidBooks.length === 0) {
+    const err = new Error(
+      'Could not retrieve book data at this time. Please try again later.',
+    );
+    err.status = 502;
+    err.code   = 'BOOKS_UNAVAILABLE';
+    throw err;   // ← surfaces to errorHandler → Flutter shows the message
+  }
 
   const result = groupBooksByCategory(allValidBooks);
   const bookCount = result.reduce((sum, s) => sum + s.bookInfo.length, 0);
@@ -1041,7 +1063,14 @@ async function getBookRecommendations(profession, userId = null) {
 
   const shared = await getCache('books', profession);
   if (shared) return shared;
-
+if (!isDbAvailable()) {
+    const err = new Error(
+      'No Internet connectivity. Please try again.',
+    );
+    err.status = 503;
+    err.code   = 'DB_CONNECTION_ERROR';
+    throw err;
+  }
   return fetchFreshBooks(profession);
 }
 

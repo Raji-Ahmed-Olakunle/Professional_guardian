@@ -1,168 +1,3 @@
-// const axios = require('axios');
-// const { getCache, setCache } = require('./cacheService');
-
-// const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID;
-// const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY;
-
-// if (!ADZUNA_APP_ID) throw new Error('ADZUNA_APP_ID is not set');
-// if (!ADZUNA_APP_KEY) throw new Error('ADZUNA_APP_KEY is not set');
-
-// // Adzuna country code map
-// const COUNTRY_CODES = {
-//   'united states': 'us', 'usa': 'us', 'us': 'us',
-//   'united kingdom': 'gb', 'uk': 'gb', 'gb': 'gb',
-//   'canada': 'ca', 'australia': 'au', 'germany': 'de',
-//   'france': 'fr', 'india': 'in', 'singapore': 'sg',
-//   'netherlands': 'nl', 'spain': 'es', 'italy': 'it',
-//   'brazil': 'br', 'mexico': 'mx', 'south africa': 'za',
-//   'nigeria': 'ng', 'kenya': 'ke',
-// };
-
-// function getCountryCode(location) {
-//   if (!location) return 'gb'; // Adzuna default
-//   const key = location.toLowerCase().trim();
-//   return COUNTRY_CODES[key] || 'gb';
-// }
-
-// /**
-//  * Search jobs using Adzuna API
-//  *
-//  * @param {object} params
-//  * @param {string} params.query - job search query
-//  * @param {string} params.location - country name
-//  * @param {string} params.jobType - remote|onsite|hybrid|any
-//  * @param {number} params.page
-//  */
-// async function searchJobs({ query, location, jobType = 'any', page = 1 }) {
-//   const countryCode = getCountryCode(location);
-// console.log(`[JobService] Searching jobs with query="${query}", location="${location}", jobType="${jobType}", countryCode="${countryCode}", page=${page}`);
-// console.log(`[JobService] App ID: ${ADZUNA_APP_ID}`);
-// console.log(`[JobService] App Key: ${ADZUNA_APP_KEY}`);
-// const params = {
-//     app_id: ADZUNA_APP_ID,
-//     app_key: ADZUNA_APP_KEY,
-//     results_per_page: 10,
-//     what: query,
-//     sort_by: 'relevance',
-//     page,
-//   };
-
-//   // Add job type filter
-//   if (jobType === 'remote') {
-//     params.what = `${query} remote`;
-//   } else if (jobType === 'onsite') {
-//     params.what = query;
-//   }
-
-//   try {
-//     const response = await axios.get(
-//       `https://api.adzuna.com/v1/api/jobs/${countryCode}/search/${page}`,
-//       { params, timeout: 15000 },
-//     );
-//     return (response.data?.results || []).map((job) => ({
-//       jobId: job.id,
-//       jobTitle: job.title,
-//       company: job.company?.display_name || 'Unknown',
-//       location: job.location?.display_name || location || 'Unknown',
-//       country: countryCode.toUpperCase(),
-//       salary: job.salary_min && job.salary_max
-//         ? `${Math.round(job.salary_min / 1000)}k - ${Math.round(job.salary_max / 1000)}k`
-//         : job.salary_min
-//         ? `From ${Math.round(job.salary_min / 1000)}k`
-//         : null,
-//       description: job.description
-//         ? `${job.description.slice(0, 300)}...`
-//         : null,
-//       url: job.redirect_url,
-//       postedAt: job.created,
-//       category: job.category?.label || null,
-//       contractType: job.contract_type || null,
-//       isRemote: job.title?.toLowerCase().includes('remote') ||
-//                 job.description?.toLowerCase().includes('remote work') || false,
-//     }));
-//   } catch (error) {
-//     console.error(`[JobService] Adzuna fetch failed:`, error.message);
-//     return [];
-//   }
-// }
-
-
-// // async function getPersonalizedJobs(profile) {
-// //   const cacheKey = `jobs:${profile.keywords?.jobs?.join(',') || 'general'}`;
-
-// //   // Check cache
-// //   const cached = await getCache('jobs', cacheKey);
-// //   if (cached) return cached;
-
-// //   const jobQueries = profile.keywords?.jobs?.length
-// //     ? profile.keywords.jobs
-// //     : [profile.roles?.[0] || 'software engineer'];
-
-// //   const location = profile.location || null;
-// //   const jobType = profile.preferredJobType || 'any';
-
-// //   // Fetch for each job query in parallel
-// //   const fetchResults = await Promise.allSettled(
-// //     jobQueries.map((query) =>
-// //       searchJobs({ query, location, jobType }),
-// //     ),
-// //   );
-
-// //   // Group results by query as category
-// //   const sections = fetchResults
-// //     .map((result, i) => ({
-// //       category: jobQueries[i],
-// //       jobs: result.status === 'fulfilled' ? result.value : [],
-// //     }))
-// //     .filter((s) => s.jobs.length > 0);
-
-// //   if (sections.length > 0) {
-// //     await setCache('jobs', cacheKey, sections, {
-// //       cachedAt: new Date(),
-// //     });
-// //   }
-//   async function getPersonalizedJobs(profile, userId = null) {
-//   // Build cache key from job keywords + location + jobType
-//   const cacheKeyStr = [
-//     ...(profile.keywords?.jobs || []),
-//     profile.location || 'global',
-//     profile.preferredJobType || 'any',
-//   ].join(':');
-
-//   if (userId) {
-//     const personal = await getPersonalCache('jobs', userId);
-//     if (personal) return personal;
-//   }
-
-//   const jobQueries = profile.keywords?.jobs?.length
-//     ? profile.keywords.jobs
-//     : [profile.roles?.[0] || 'professional'];
-
-//   const location = profile.location || null;
-//   const jobType = profile.preferredJobType || 'any';
-
-//   const fetchResults = await Promise.allSettled(
-//     jobQueries.map((query) => searchJobs({ query, location, jobType })),
-//   );
-
-//   const sections = fetchResults
-//     .map((result, i) => ({
-//       category: jobQueries[i],
-//       jobs: result.status === 'fulfilled' ? result.value : [],
-//     }))
-//     .filter((s) => s.jobs.length > 0);
-
-//   if (sections.length > 0 && userId) {
-//     await setPersonalCache('jobs', userId, sections, {
-//       cachedAt: new Date(),
-//     });
-//   }
-
- 
-//   return sections;
-// }
-
-// module.exports = { getPersonalizedJobs, searchJobs };
 
 
 const axios = require('axios');
@@ -171,30 +6,108 @@ const { getPersonalCache, setPersonalCache } = require('./cacheService');
 const JSEARCH_API_KEY = process.env.JSEARCH_API_KEY;
 if (!JSEARCH_API_KEY) throw new Error('JSEARCH_API_KEY is not set');
 
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+const CACHE_TTL_SECONDS = 60 * 60 * 6;   // 6 hours
+const THROTTLE_DELAY_MS  = 1200;           // delay between sequential API calls
+const RETRY_COUNT        = 3;              // max retries on 429
+const RETRY_BASE_DELAY   = 1000;           // 1s → 2s → 4s
+
+// ─── Axios client ─────────────────────────────────────────────────────────────
+
 const jSearchClient = axios.create({
   baseURL: 'https://jsearch.p.rapidapi.com',
-  timeout: 15000,
+  timeout: 20000,
   headers: {
     'X-RapidAPI-Key': JSEARCH_API_KEY,
     'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
   },
 });
 
+// ─── Retry helper (exponential backoff on 429) ────────────────────────────────
+
+async function fetchWithRetry(path, params, retries = RETRY_COUNT, baseDelay = RETRY_BASE_DELAY) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await jSearchClient.get(path, { params });
+    } catch (error) {
+      const is429  = error.response?.status === 429;
+      const isLast = attempt === retries - 1;
+
+      if (!is429 || isLast) throw error;
+
+      const delay = baseDelay * 2 ** attempt; // 1000ms, 2000ms, 4000ms
+      console.warn(
+        `[JobService] Rate limited (429). Retrying in ${delay}ms… (attempt ${attempt + 1}/${retries})`,
+      );
+      await sleep(delay);
+    }
+  }
+}
+
+// ─── Throttled sequential fetcher ────────────────────────────────────────────
+// Replaces Promise.allSettled — fires one query at a time with a delay between
+// each to avoid bursting the RapidAPI rate limit.
+
+async function throttledSearch(queries, location, jobType) {
+  const results = [];
+
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
+
+    try {
+      const jobs = await searchJobs({
+        query,
+        location,
+        jobType,
+      });
+
+      results.push({
+        status: "fulfilled",
+        value: jobs,
+      });
+    } catch (err) {
+      console.error(
+        `[JobService] Query "${query}" failed:`,
+        err.message,
+      );
+
+      results.push({
+        status: "rejected",
+        reason: err,
+      });
+    }
+
+    if (i < queries.length - 1) {
+      await sleep(THROTTLE_DELAY_MS);
+    }
+  }
+
+  return results;
+}
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ─── Job type query builder ───────────────────────────────────────────────────
 
 function buildQuery(baseQuery, jobType, location) {
-  let query = baseQuery;
+  let query = baseQuery.trim();
 
-  // JSearch supports natural language queries — append type + location
-  if (jobType === 'remote') {
-    query = `${query} remote`;
-  } else if (jobType === 'hybrid') {
-    query = `${query} hybrid`;
+  if (jobType === "remote") {
+    query += " remote";
+  } else if (jobType === "hybrid") {
+    query += " hybrid";
   }
 
-  // Append country/location for geo-filtering
-  if (location) {
-    query = `${query} in ${location}`;
+  if (
+    location &&
+    !query.toLowerCase().includes(location.toLowerCase())
+  ) {
+    query += ` in ${location}`;
   }
 
   return query;
@@ -206,20 +119,20 @@ async function searchJobs({ query, location, jobType = 'any', page = 1 }) {
   const builtQuery = buildQuery(query, jobType, location);
 
   try {
-    const response = await jSearchClient.get('/search', {
-      params: {
-        query: builtQuery,
-        page,
-        num_pages: 1,
-        date_posted: 'month', // jobs from last 30 days
-        remote_jobs_only: jobType === 'remote' ? 'true' : 'false',
-        employment_types: jobType === 'any'
+    const response = await fetchWithRetry('/search', {
+      query: builtQuery,
+      page,
+      num_pages: 1,
+      date_posted: 'month',
+      remote_jobs_only: jobType === 'remote' ? 'true' : 'false',
+      employment_types:
+        jobType === 'any'
           ? undefined
           : jobType === 'remote' || jobType === 'onsite'
           ? 'FULLTIME'
           : undefined,
-      },
     });
+
     return (response.data?.data || []).map((job) => ({
       jobId: job.job_id,
       jobTitle: job.job_title,
@@ -228,11 +141,12 @@ async function searchJobs({ query, location, jobType = 'any', page = 1 }) {
         .filter(Boolean)
         .join(', ') || location || 'Unknown',
       country: job.job_country || null,
-      salary: job.job_min_salary && job.job_max_salary
-        ? `${Math.round(job.job_min_salary / 1000)}k - ${Math.round(job.job_max_salary / 1000)}k ${job.job_salary_currency || ''}`
-        : job.job_min_salary
-        ? `From ${Math.round(job.job_min_salary / 1000)}k`
-        : null,
+      salary:
+        job.job_min_salary && job.job_max_salary
+          ? `${Math.round(job.job_min_salary / 1000)}k - ${Math.round(job.job_max_salary / 1000)}k ${job.job_salary_currency || ''}`
+          : job.job_min_salary
+          ? `From ${Math.round(job.job_min_salary / 1000)}k`
+          : null,
       description: job.job_description
         ? `${job.job_description.slice(0, 300)}...`
         : null,
@@ -246,19 +160,23 @@ async function searchJobs({ query, location, jobType = 'any', page = 1 }) {
   } catch (error) {
     console.error(
       `[JobService] JSearch failed for "${builtQuery}":`,
-      error.message,
+      error.response?.status ?? error.message,
     );
-    return [];
-  }
+
+    throw error;
+}
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function getPersonalizedJobs(profile, userId = null) {
-  // Check personal cache first
+  // 1. Return cached result if available
   if (userId) {
-    const personal = await getPersonalCache('jobs', userId);
-    if (personal) return personal;
+    const cached = await getPersonalCache('jobs', userId);
+    if (cached) {
+      console.info(`[JobService] Returning cached jobs for user ${userId}`);
+      return cached;
+    }
   }
 
   const jobQueries = profile.keywords?.jobs?.length
@@ -266,34 +184,43 @@ async function getPersonalizedJobs(profile, userId = null) {
     : [profile.roles?.[0] || 'professional'];
 
   const location = profile.location || null;
-  const jobType = profile.preferredJobType || 'any';
+  const jobType  = profile.preferredJobType || 'any';
 
-  // Fetch all job queries in parallel
-  const fetchResults = await Promise.allSettled(
-    jobQueries.map((query) =>
-      searchJobs({ query, location, jobType }),
-    ),
-  );
+  // 2. Fetch queries one-at-a-time with throttling + per-call retry
+  const fetchResults = await throttledSearch(jobQueries, location, jobType);
 
-  // Deduplicate by jobId across all sections
+  // 3. Deduplicate by jobId across all sections
   const seenIds = new Set();
 
   const sections = fetchResults
     .map((result, i) => ({
       category: jobQueries[i],
-      jobs: result.status === 'fulfilled'
-        ? result.value.filter((job) => {
-            if (seenIds.has(job.jobId)) return false;
-            seenIds.add(job.jobId);
-            return true;
-          })
-        : [],
+      jobs:
+        result.status === 'fulfilled'
+          ? result.value.filter((job) => {
+              if (seenIds.has(job.jobId)) return false;
+              seenIds.add(job.jobId);
+              return true;
+            })
+          : [],
     }))
     .filter((s) => s.jobs.length > 0);
 
-  if (sections.length > 0 && userId) {
+  // 4. Surface a clean error if nothing came back
+  if (sections.length === 0) {
+    const err = new Error(
+      'No job listings could be retrieved at this time. Please try again later.',
+    );
+    err.status = 502;
+    err.code    = 'JOBS_UNAVAILABLE';
+    throw err;
+  }
+
+  // 5. Cache the result for future requests
+  if (userId) {
     await setPersonalCache('jobs', userId, sections, {
       cachedAt: new Date(),
+      ttl: CACHE_TTL_SECONDS,
     });
   }
 

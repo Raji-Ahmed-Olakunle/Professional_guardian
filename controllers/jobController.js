@@ -13,7 +13,7 @@ const getJobs = async (req, res, next) => {
       throw err;
     }
 
-    const jobs = await getPersonalizedJobs(profile);
+    const jobs = await getPersonalizedJobs(profile,req.user.id);
     success(res, { jobs });
   } catch (err) {
     next(err);

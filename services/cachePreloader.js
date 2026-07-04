@@ -24,7 +24,7 @@ async function preloadProfession(profession) {
   if (!newsAlreadyCached) {
     console.log(`[Preloader] Fetching fresh news for: ${profession}`);
     tasks.push(
-      withTimeout(fetchFreshNews(profession), 120000, `news:${profession}`),
+      withTimeout(fetchFreshNews(profession), 240000, `news:${profession}`),
     );
   } else {
     console.log(`[Preloader] News cache valid for: ${profession} — skipping`);

@@ -1,99 +1,113 @@
-// const Cache = require('../models/cacheModel');
 
-// const CACHE_TTL_HOURS = 24;
 
-// function buildKey(type, profession) {
-//   return `${type}:${profession.toLowerCase().trim()}`;
-// }
 
-// function getExpiresAt() {
-//   const d = new Date();
-//   d.setHours(d.getHours() + CACHE_TTL_HOURS);
-//   return d;
-// }
 
-// // ─── Get from cache ───────────────────────────────────────────────────────────
 
-// async function getCache(type, profession) {
-//   try {
-//     const key = buildKey(type, profession);
-//     const cached = await Cache.findOne({ key });
 
-//     if (!cached) {
-//       console.log(`[Cache MISS] ${key}`);
-//       return null;
-//     }
 
-//     console.log(`[Cache HIT] ${key}`);
-//     return cached.data;
-//   } catch (error) {
-//     // Never let cache errors crash the app — just fetch fresh
-//     console.error('[Cache] getCache error:', error.message);
-//     return null;
-//   }
-// }
 
-// // ─── Set cache ────────────────────────────────────────────────────────────────
 
-// async function setCache(type, profession, data, meta = {}) {
-//   try {
-//     const key = buildKey(type, profession);
 
-//     await Cache.findOneAndUpdate(
-//       { key },
-//       {
-//         key,
-//         profession: profession.toLowerCase().trim(),
-//         type,
-//         data,
-//         expiresAt: getExpiresAt(),
-//         meta: {
-//           ...meta,
-//           cachedAt: new Date(),
-//         },
-//       },
-//       { upsert: true, new: true },
-//     );
 
-//     console.log(`[Cache SET] ${key}`);
-//   } catch (error) {
-//     // Never let cache errors crash the app
-//     console.error('[Cache] setCache error:', error.message);
-//   }
-// }
 
-// // ─── Check if cache exists and is valid ──────────────────────────────────────
 
-// async function isCached(type, profession) {
-//   try {
-//     const key = buildKey(type, profession);
-//     const exists = await Cache.exists({ key });
-//     return !!exists;
-//   } catch {
-//     return false;
-//   }
-// }
 
-// // ─── Invalidate cache ─────────────────────────────────────────────────────────
 
-// async function invalidateCache(type, profession) {
-//   try {
-//     const key = buildKey(type, profession);
-//     await Cache.deleteOne({ key });
-//     console.log(`[Cache INVALIDATED] ${key}`);
-//   } catch (error) {
-//     console.error('[Cache] invalidateCache error:', error.message);
-//   }
-// }
 
-// module.exports = {
-//   getCache,
-//   setCache,
-//   isCached,
-//   invalidateCache,
-// };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const Cache = require('../models/cacheModel');
+const mongoose = require('mongoose');
 
 const CACHE_TTL_HOURS = 24;
 
@@ -111,9 +125,21 @@ function getExpiresAt(hours = CACHE_TTL_HOURS) {
   return d;
 }
 
-// ─── Shared cache (profession-level) ─────────────────────────────────────────
+
+
+
+
+function isDbAvailable() {
+  return mongoose.connection.readyState === 1;
+}
+
+
 
 async function getCache(type, profession) {
+  if (!isDbAvailable()) {
+    console.warn(`[Cache] DB unavailable — skipping getCache for ${type}:${profession}`);
+    return null;
+  }
   try {
     const key = buildSharedKey(type, profession);
     const cached = await Cache.findOne({ key });
@@ -125,11 +151,15 @@ async function getCache(type, profession) {
     return cached.data;
   } catch (error) {
     console.error('[Cache] getCache error:', error.message);
-    return null;
+    return null; 
   }
 }
 
 async function setCache(type, profession, data, meta = {}) {
+  if (!isDbAvailable()) {
+    console.warn(`[Cache] DB unavailable — skipping setCache for ${type}:${profession}`);
+    return; 
+  }
   try {
     const key = buildSharedKey(type, profession);
     await Cache.findOneAndUpdate(
@@ -148,10 +178,12 @@ async function setCache(type, profession, data, meta = {}) {
     console.log(`[Cache SET] ${key}`);
   } catch (error) {
     console.error('[Cache] setCache error:', error.message);
+    
   }
 }
 
 async function isCached(type, profession) {
+  if (!isDbAvailable()) return false;
   try {
     const key = buildSharedKey(type, profession);
     const exists = await Cache.exists({ key });
@@ -161,9 +193,13 @@ async function isCached(type, profession) {
   }
 }
 
-// ─── Personal cache (user-level) ─────────────────────────────────────────────
+
 
 async function getPersonalCache(type, userId) {
+  if (!isDbAvailable()) {
+    console.warn(`[Cache] DB unavailable — skipping getPersonalCache for ${type}:${userId}`);
+    return null;
+  }
   try {
     const key = buildPersonalKey(type, userId);
     const cached = await Cache.findOne({ key });
@@ -180,6 +216,10 @@ async function getPersonalCache(type, userId) {
 }
 
 async function setPersonalCache(type, userId, data, meta = {}) {
+  if (!isDbAvailable()) {
+    console.warn(`[Cache] DB unavailable — skipping setPersonalCache for ${type}:${userId}`);
+    return;
+  }
   try {
     const key = buildPersonalKey(type, userId);
     await Cache.findOneAndUpdate(
@@ -202,6 +242,10 @@ async function setPersonalCache(type, userId, data, meta = {}) {
 }
 
 async function invalidatePersonalCache(userId) {
+  if (!isDbAvailable()) {
+    console.warn(`[Cache] DB unavailable — skipping invalidatePersonalCache for user:${userId}`);
+    return;
+  }
   try {
     await Cache.deleteMany({ userId, cacheType: 'personal' });
     console.log(`[PersonalCache INVALIDATED] user:${userId}`);
@@ -211,6 +255,7 @@ async function invalidatePersonalCache(userId) {
 }
 
 async function invalidateCache(type, profession) {
+  if (!isDbAvailable()) return;
   try {
     const key = buildSharedKey(type, profession);
     await Cache.deleteOne({ key });
@@ -219,6 +264,7 @@ async function invalidateCache(type, profession) {
     console.error('[Cache] invalidateCache error:', error.message);
   }
 }
+
 module.exports = {
   getCache,
   setCache,
@@ -226,6 +272,6 @@ module.exports = {
   invalidateCache,
   getPersonalCache,
   setPersonalCache,
-  
   invalidatePersonalCache,
+  isDbAvailable,
 };
