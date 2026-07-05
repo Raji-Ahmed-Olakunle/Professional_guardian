@@ -1,26 +1,26 @@
-// const { getBookRecommendations } = require('../services/bookService');
-// const { success } = require('../utils/response');
 
-// const getRecommendations = async (req, res, next) => {
-//   try {
-//     const query = req.query.q;
 
-//     if (!query) {
-//       const err = new Error('Query parameter "q" is required');
-//       err.status = 400;
-//       throw err;
-//     }
 
-//     const result = await getBookRecommendations(query);
-//     success(res, result);
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 
-// module.exports = {
-//   getRecommendations,
-// };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 const { getBookRecommendations } = require('../services/bookService');
 const { success } = require('../utils/response');

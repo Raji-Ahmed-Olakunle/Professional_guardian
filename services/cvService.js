@@ -5,8 +5,15 @@ const Tesseract = require('tesseract.js');
 const { fromBuffer } = require('pdf2pic');
 
 async function extractTextFromPdf(buffer) {
-  const data = await pdfParse(buffer);
-  return data.text?.trim() || '';
+  try {
+    const data = await pdfParse(buffer);
+    return data.text?.trim() || '';
+  } catch (err) {
+    // Not a valid PDF at all — don't even try OCR on garbage
+    const e = new Error('The uploaded file is not a valid PDF.');
+    e.status = 400;
+    throw e;
+  }
 }
 async function runOCR(buffer) {
   const convert = fromBuffer(buffer, {

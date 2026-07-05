@@ -549,7 +549,7 @@ Return ONLY valid JSON matching the provided schema.`;
 
 async function extractCvProfile(cvText, profession) {
   const prompt = `You are a professional CV analyzer and content strategist.
-
+First, determine whether the text below is actually a CV/resume (a document describing a person's work experience, education, and skills for job-seeking purposes).
 Analyze the CV below and extract structured information.
 The person's stated profession is: "${profession}".
 
@@ -557,8 +557,9 @@ CV TEXT:
 """
 ${cvText.slice(0, 8000)}
 """
-Extract information and return ONLY valid JSON matching this exact schema, no markdown:
-{
+Return ONLY valid JSON matching this exact schema, no markdown:
+{  "is_cv": true or false,
+  "rejection_reason": "short human-readable reason if is_cv is false, else null",
   "name": "Full name or null",
   "roles": ["current or target job titles, max 4"],
   "skills": ["technical/domain skills only, max 15, no soft skills"],
@@ -577,6 +578,7 @@ Extract information and return ONLY valid JSON matching this exact schema, no ma
     "jobs": ["3 specific job title search queries e.g. 'senior data scientist remote UK'"]
   }
 }
+ If is_cv is false, you may leave all other fields as null/[] — do not fabricate CV data from non-CV content. 
 
 NEWS KEYWORD RULES (IMPORTANT):
 
@@ -639,8 +641,19 @@ GENERAL RULES:
 - If a field cannot be determined, use null for strings or [] for arrays
 - preferred_job_type: look for "remote", "hybrid", location preferences in CV`;
 
-  const text = await callGemini(prompt);
-  return parseJSON(text);
+   const text = await callGemini(prompt);
+  const parsed = parseJSON(text);
+
+  if (!parsed.is_cv) {
+    const err = new Error(
+      parsed.rejection_reason || 'The uploaded file does not appear to be a CV.'
+    );
+    err.status = 400;
+    throw err;
+  }
+
+  return parsed;
+ 
 }
 
 module.exports = {
